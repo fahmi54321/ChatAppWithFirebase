@@ -40,6 +40,7 @@ dependencies {
     //todo 1 (next manifest)
     //firebase ui
     implementation 'com.firebaseui:firebase-ui-auth:6.3.0'
+    implementation 'com.firebaseui:firebase-ui-database:7.1.1'
     //butter knife
     implementation 'com.jakewharton:butterknife:10.2.3'
     implementation 'com.google.firebase:firebase-database:20.0.0'

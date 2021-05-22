@@ -5,9 +5,10 @@
     android:layout_height="match_parent"
     tools:context=".Fragments.PeopleFragment">
 
-    <TextView
+<!--    todo 1 (friend list) next people fragment-->
+    <androidx.recyclerview.widget.RecyclerView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:text="Hello" />
+        android:id="@+id/rv_people"></androidx.recyclerview.widget.RecyclerView>
 
 </FrameLayout>
