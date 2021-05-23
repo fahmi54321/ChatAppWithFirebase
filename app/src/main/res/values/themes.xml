@@ -32,4 +32,12 @@
         <item name="android:windowFullscreen">true</item>
 
     </style>
+
+    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.ActionBar">
+        <item name="colorControlNormal">@color/black</item>
+    </style>
+    <style name="ToolbarColoredBackArrow" parent="Theme.ChatAppWithFirebase">
+        <item name="android:textColorSecondary">@color/white</item>
+    </style>
+    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light"></style>
 </resources>

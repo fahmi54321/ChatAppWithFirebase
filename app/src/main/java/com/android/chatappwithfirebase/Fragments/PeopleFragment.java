@@ -2,6 +2,7 @@ package com.android.chatappwithfirebase.Fragments;
 
 import androidx.lifecycle.ViewModelProvider;
 
+import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -17,6 +18,7 @@ import android.view.ViewGroup;
 
 import com.amulyakhare.textdrawable.TextDrawable;
 import com.amulyakhare.textdrawable.util.ColorGenerator;
+import com.android.chatappwithfirebase.ChatActivity;
 import com.android.chatappwithfirebase.Common.Common;
 import com.android.chatappwithfirebase.Model.UserModel;
 import com.android.chatappwithfirebase.R;
@@ -92,7 +94,10 @@ public class PeopleFragment extends Fragment {
 
                     //event
                     holder.itemView.setOnClickListener(v->{
-
+                        //todo 1 (create conversation) next layout chat activity
+                        Common.chatuser = model;
+                        Common.chatuser.setUid(adapter.getRef(position).getKey());
+                        startActivity(new Intent(getContext(), ChatActivity.class));
                     });
                 }else{
                     holder.itemView.setVisibility(View.GONE);
