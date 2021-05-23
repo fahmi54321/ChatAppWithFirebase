@@ -2,6 +2,7 @@ package com.android.chatappwithfirebase.Fragments;
 
 import androidx.lifecycle.ViewModelProvider;
 
+import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -14,9 +15,11 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import com.amulyakhare.textdrawable.TextDrawable;
 import com.amulyakhare.textdrawable.util.ColorGenerator;
+import com.android.chatappwithfirebase.ChatActivity;
 import com.android.chatappwithfirebase.Common.Common;
 import com.android.chatappwithfirebase.Model.ChatInfoModel;
 import com.android.chatappwithfirebase.Model.UserModel;
@@ -25,8 +28,11 @@ import com.android.chatappwithfirebase.ViewHolder.ChatInfoHolder;
 import com.firebase.ui.database.FirebaseRecyclerAdapter;
 import com.firebase.ui.database.FirebaseRecyclerOptions;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
+import com.google.firebase.database.ValueEventListener;
 
 import java.text.SimpleDateFormat;
 
@@ -104,7 +110,27 @@ public class ChatFragment extends Fragment {
 
                     //event
                     holder.itemView.setOnClickListener(view -> {
+                        // go to chat detail
+                        FirebaseDatabase.getInstance()
+                                .getReference(Common.USER_REFERENCE)
+                                .child(FirebaseAuth.getInstance().getCurrentUser().getUid()
+                                        .equals(model.getCreatedId()) ? model.getFriendId() : model.getCreatedId())
+                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                                        if (snapshot.exists()){
+                                            UserModel userModel = snapshot.getValue(UserModel.class);
+                                            Common.chatuser = userModel;
+                                            Common.chatuser.setUid(snapshot.getKey());
+                                            startActivity(new Intent(getContext(), ChatActivity.class));
+                                        }
+                                    }
 
+                                    @Override
+                                    public void onCancelled(@NonNull DatabaseError error) {
+                                        Toast.makeText(getContext(), error.getMessage(), Toast.LENGTH_SHORT).show();
+                                    }
+                                });
                     });
 
                 }else{

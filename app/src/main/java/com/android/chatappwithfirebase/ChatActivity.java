@@ -1,15 +1,22 @@
 package com.android.chatappwithfirebase;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatEditText;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.content.ContentValues;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.Image;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,8 +32,11 @@ import com.android.chatappwithfirebase.Listener.IFirebaseLoadFailed;
 import com.android.chatappwithfirebase.Listener.ILoadTimeFromFirebaseListener;
 import com.android.chatappwithfirebase.Model.ChatInfoModel;
 import com.android.chatappwithfirebase.Model.ChatMessageModel;
+import com.android.chatappwithfirebase.ViewHolder.ChatPictureHolder;
+import com.android.chatappwithfirebase.ViewHolder.ChatPictureReceiveHolder;
 import com.android.chatappwithfirebase.ViewHolder.ChatTextHolder;
 import com.android.chatappwithfirebase.ViewHolder.ChatTextReceiveHolder;
+import com.bumptech.glide.Glide;
 import com.firebase.ui.database.FirebaseRecyclerAdapter;
 import com.firebase.ui.database.FirebaseRecyclerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -40,7 +50,13 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
@@ -82,6 +98,26 @@ public class ChatActivity extends AppCompatActivity implements ILoadTimeFromFire
     FirebaseRecyclerOptions<ChatMessageModel> options;
     Uri fileUri;
     LinearLayoutManager layoutManager;
+    //todo 2 send pictures
+    StorageReference storageReference;
+    @OnClick(R.id.img_image)
+    void onSelectImageClick(){
+        Intent intent = new Intent(Intent.ACTION_PICK);
+        intent.setType("image/");
+        startActivityForResult(intent,MY_REQUEST_LOAD_IMAGE);
+    }
+    @OnClick(R.id.img_camera)
+    void onCaptureImageClick(){
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.TITLE,"New Picture");
+        values.put(MediaStore.Images.Media.DESCRIPTION,"From your camera");
+        fileUri = getContentResolver().insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values
+        );
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT,fileUri);
+        startActivityForResult(intent,MY_CAMERA_REQUEST_CODE);
+    }
 
     //todo 5(create conversation)
     @Override
@@ -160,6 +196,24 @@ public class ChatActivity extends AppCompatActivity implements ILoadTimeFromFire
                     chatTextReceiveHolder.txt_chat_message.setText(model.getContent());
                     chatTextReceiveHolder.txt_time.setText(DateUtils.getRelativeTimeSpanString(model.getTimeStamp(),
                             Calendar.getInstance().getTimeInMillis(),0).toString());
+                }//todo 8 send pictures ()
+                else if (holder instanceof ChatPictureHolder){
+                    ChatPictureHolder chatPictureHolder = (ChatPictureHolder) holder;
+                    chatPictureHolder.txt_chat_message.setText(model.getContent());
+                    chatPictureHolder.txt_time.setText(DateUtils.getRelativeTimeSpanString(model.getTimeStamp(),
+                            Calendar.getInstance().getTimeInMillis(),0).toString());
+                    Glide.with(ChatActivity.this)
+                            .load(model.getPictureLink())
+                            .into(chatPictureHolder.img_preview);
+                }
+                else if (holder instanceof ChatPictureReceiveHolder){
+                    ChatPictureReceiveHolder chatPictureReceiveHolder = (ChatPictureReceiveHolder) holder;
+                    chatPictureReceiveHolder.txt_chat_message.setText(model.getContent());
+                    chatPictureReceiveHolder.txt_time.setText(DateUtils.getRelativeTimeSpanString(model.getTimeStamp(),
+                            Calendar.getInstance().getTimeInMillis(),0).toString());
+                    Glide.with(ChatActivity.this)
+                            .load(model.getPictureLink())
+                            .into(chatPictureReceiveHolder.img_preview);
                 }
             }
 
@@ -167,14 +221,25 @@ public class ChatActivity extends AppCompatActivity implements ILoadTimeFromFire
             @Override
             public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
                 View view;
-                if (viewType == 0) {
+                if (viewType == 0) { // text message of user "own message"
                     view = LayoutInflater.from(parent.getContext())
                             .inflate(R.layout.layout_message_text_own, parent, false);
                     return new ChatTextReceiveHolder(view);
-                } else{
+
+                    //todo 7 send pictures (next chat activity)
+                }else if(viewType==1){ // picture message of user
+                    view = LayoutInflater.from(parent.getContext())
+                            .inflate(R.layout.layout_message_picture_friend, parent, false);
+                    return new ChatPictureReceiveHolder(view);
+                }
+                else if(viewType==2){ // text message of friend
                     view = LayoutInflater.from(parent.getContext())
                             .inflate(R.layout.layout_message_text_friend, parent, false);
                     return new ChatTextHolder(view);
+                }else{ // picture message of friend
+                    view = LayoutInflater.from(parent.getContext())
+                            .inflate(R.layout.layout_message_picture_own, parent, false);
+                    return new ChatPictureHolder(view);
                 }
             }
         };
@@ -247,9 +312,51 @@ public class ChatActivity extends AppCompatActivity implements ILoadTimeFromFire
         chatMessageModel.setTimeStamp(estimmateTimeInMs);
         chatMessageModel.setSenderId(FirebaseAuth.getInstance().getCurrentUser().getUid());
 
-        //Current, we just implement chat text
-        chatMessageModel.setPicture(false);
-        submitChatToFirebase(chatMessageModel, chatMessageModel.isPicture(), estimmateTimeInMs);
+        //todo 4 send pictures
+        if (fileUri==null) {
+            chatMessageModel.setPicture(false);
+            submitChatToFirebase(chatMessageModel, chatMessageModel.isPicture(), estimmateTimeInMs);
+        }else{
+            uploadPicture(fileUri,chatMessageModel,estimmateTimeInMs);
+        }
+    }
+
+    private void uploadPicture(Uri fileUri, ChatMessageModel chatMessageModel, long estimmateTimeInMs) {
+        AlertDialog dialog = new AlertDialog.Builder(ChatActivity.this)
+                .setCancelable(false)
+                .setMessage("Please wait...")
+                .create();
+        dialog.show();
+        String fileName = Common.getFileName(getContentResolver(),fileUri);
+        String path = new StringBuilder(Common.chatuser.getUid())
+                .append("/")
+                .append(fileName)
+                .toString();
+        storageReference = FirebaseStorage.getInstance()
+                .getReference()
+                .child(path);
+
+        UploadTask uploadTask = storageReference.putFile(fileUri);
+
+        //Create Task
+        Task<Uri> task = uploadTask.continueWithTask(task1 -> {
+            if (!task1.isSuccessful()){
+                Toast.makeText(this, "Failed to upload", Toast.LENGTH_SHORT).show();
+            }
+            return storageReference.getDownloadUrl();
+        }).addOnCompleteListener(task1 -> {
+            if (task1.isSuccessful()){
+                String url = task1.getResult().toString();
+                dialog.dismiss();
+
+                chatMessageModel.setPicture(true);
+                chatMessageModel.setPictureLink(url);
+
+                submitChatToFirebase(chatMessageModel,chatMessageModel.isPicture(),estimmateTimeInMs);
+            }
+        }).addOnFailureListener(e -> {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void submitChatToFirebase(ChatMessageModel chatMessageModel, boolean picture, long estimmateTimeInMs) {
@@ -276,8 +383,12 @@ public class ChatActivity extends AppCompatActivity implements ILoadTimeFromFire
         Map<String, Object> update_data = new HashMap<>();
         update_data.put("lastIpdate", estimmateTimeInMs);
 
-        //only text
-        update_data.put("lastMessage", chatMessageModel.getContent());
+        //todo 5 send pictures
+        if (isPicture){
+            update_data.put("lastMessage","<Image>");
+        }else {
+            update_data.put("lastMessage", chatMessageModel.getContent());
+        }
 
         //update
         //update on user list
@@ -318,6 +429,13 @@ public class ChatActivity extends AppCompatActivity implements ILoadTimeFromFire
                                                 if (adapter != null) {
                                                     adapter.notifyDataSetChanged();
                                                 }
+
+                                                //todo 10 send pictures ()
+                                                // clear preview thumbnail
+                                                if (isPicture){
+                                                    fileUri = null;
+                                                    img_preview.setVisibility(View.GONE);
+                                                }
                                             }
                                         });
                             });
@@ -331,8 +449,12 @@ public class ChatActivity extends AppCompatActivity implements ILoadTimeFromFire
         chatInfoModel.setFriendId(Common.chatuser.getUid());
         chatInfoModel.setCreateName(Common.getName(Common.currentUser));
 
-        //only text
-        chatInfoModel.setLastMessage(chatMessageModel.getContent());
+        //todo 6 send pictures (next layout message picture friend && layout message picture own)
+        if (isPicture){
+            chatInfoModel.setLastMessage("<Image>");
+        }else {
+            chatInfoModel.setLastMessage(chatMessageModel.getContent());
+        }
 
         chatInfoModel.setLastUpdate(estimmateTimeInMs);
         chatInfoModel.setCreateDate(estimmateTimeInMs);
@@ -376,6 +498,13 @@ public class ChatActivity extends AppCompatActivity implements ILoadTimeFromFire
                                                 if (adapter != null) {
                                                     adapter.notifyDataSetChanged();
                                                 }
+
+                                                //todo 9 send pictures ()
+                                                // clear preview thumbnail
+                                                if (isPicture){
+                                                    fileUri = null;
+                                                    img_preview.setVisibility(View.GONE);
+                                                }
                                             }
                                         });
                             });
@@ -385,5 +514,44 @@ public class ChatActivity extends AppCompatActivity implements ILoadTimeFromFire
     @Override
     public void onError(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    //todo 3 send pictures
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == MY_CAMERA_REQUEST_CODE){
+            if (resultCode == RESULT_OK){
+                try {
+                    Bitmap thumbnail = MediaStore.Images.Media.getBitmap(
+                            getContentResolver(),
+                            fileUri
+                    );
+                    img_preview.setImageBitmap(thumbnail);
+                    img_preview.setVisibility(View.VISIBLE);
+                }catch (FileNotFoundException e){
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }else if (requestCode == MY_REQUEST_LOAD_IMAGE){
+            if (requestCode == RESULT_OK){
+                try {
+                    final Uri uri = data.getData();
+                    InputStream inputStream = getContentResolver()
+                            .openInputStream(uri);
+                    Bitmap selectImage = BitmapFactory.decodeStream(inputStream);
+                    img_preview.setImageBitmap(selectImage);
+                    img_preview.setVisibility(View.VISIBLE);
+                }catch (FileNotFoundException e){
+                    e.printStackTrace();
+                }
+            }
+        }else{
+            Toast.makeText(this, "Please Choose Image", Toast.LENGTH_SHORT).show();
+        }
+
     }
 }
