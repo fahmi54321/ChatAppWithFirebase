@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,6 +29,7 @@ import com.firebase.ui.database.FirebaseRecyclerOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -42,15 +44,16 @@ public class PeopleFragment extends Fragment {
     FirebaseRecyclerAdapter<UserModel, UserViewHolder> adapter;
 
     static PeopleFragment instance;
-    public static PeopleFragment getInstance(){
-        return instance == null ? new PeopleFragment():instance;
+
+    public static PeopleFragment getInstance() {
+        return instance == null ? new PeopleFragment() : instance;
     }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
 //      todo 2 (friend list)
-        View itemView =  inflater.inflate(R.layout.people_fragment, container, false);
+        View itemView = inflater.inflate(R.layout.people_fragment, container, false);
         initView(itemView);
         loadPeople();
         return itemView;
@@ -60,24 +63,24 @@ public class PeopleFragment extends Fragment {
         Query query = FirebaseDatabase.getInstance()
                 .getReference()
                 .child(Common.USER_REFERENCE);
-        FirebaseRecyclerOptions<UserModel>options = new FirebaseRecyclerOptions
+        FirebaseRecyclerOptions<UserModel> options = new FirebaseRecyclerOptions
                 .Builder<UserModel>()
-                .setQuery(query,UserModel.class)
+                .setQuery(query, UserModel.class)
                 .build();
 
-        adapter = new FirebaseRecyclerAdapter<UserModel, UserViewHolder>(options){
+        adapter = new FirebaseRecyclerAdapter<UserModel, UserViewHolder>(options) {
 
             @NonNull
             @Override
             public UserViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
                 View view = LayoutInflater.from(parent.getContext())
-                        .inflate(R.layout.layout_people,parent,false);
+                        .inflate(R.layout.layout_people, parent, false);
                 return new UserViewHolder(view);
             }
 
             @Override
             protected void onBindViewHolder(@NonNull UserViewHolder holder, int position, @NonNull UserModel model) {
-                if (!adapter.getRef(position).getKey().equals(FirebaseAuth.getInstance().getCurrentUser().getUid())){
+                if (!adapter.getRef(position).getKey().equals(FirebaseAuth.getInstance().getCurrentUser().getUid())) {
                     ColorGenerator generator = ColorGenerator.MATERIAL;
                     int color = generator.getColor(FirebaseAuth.getInstance().getCurrentUser().getUid());
                     TextDrawable.IBuilder builder = TextDrawable.builder()
@@ -85,7 +88,7 @@ public class PeopleFragment extends Fragment {
                             .withBorder(4)
                             .endConfig()
                             .round();
-                    TextDrawable drawable = builder.build(model.getFirstName().substring(0,1),color);
+                    TextDrawable drawable = builder.build(model.getFirstName().substring(0, 1), color);
                     holder.imgAvatar.setImageDrawable(drawable);
                     StringBuilder stringBuilder = new StringBuilder();
                     stringBuilder.append(model.getFirstName()).append(" ").append(model.getLastName());
@@ -93,15 +96,29 @@ public class PeopleFragment extends Fragment {
                     holder.txt_bio.setText(model.getBio());
 
                     //event
-                    holder.itemView.setOnClickListener(v->{
+                    holder.itemView.setOnClickListener(v -> {
                         //todo 1 (create conversation) next layout chat activity
                         Common.chatuser = model;
                         Common.chatuser.setUid(adapter.getRef(position).getKey());
-                        startActivity(new Intent(getContext(), ChatActivity.class));
+
+                        //todo 5 receive notification (next HomeActivity)
+                        String roomId = Common.generateChatRoomId(
+                                FirebaseAuth.getInstance().getCurrentUser().getUid(),
+                                Common.chatuser.getUid());
+                        Common.roomSelected = roomId;
+
+                        Log.d("ROOMID",roomId);
+
+                        //Register topic
+                        FirebaseMessaging.getInstance()
+                                .subscribeToTopic(roomId)
+                                .addOnSuccessListener(aVoid -> {
+                                    startActivity(new Intent(getContext(), ChatActivity.class));
+                                });
                     });
-                }else{
+                } else {
                     holder.itemView.setVisibility(View.GONE);
-                    holder.itemView.setLayoutParams(new RecyclerView.LayoutParams(0,0));
+                    holder.itemView.setLayoutParams(new RecyclerView.LayoutParams(0, 0));
                 }
             }
         };
@@ -110,10 +127,10 @@ public class PeopleFragment extends Fragment {
     }
 
     private void initView(View itemView) {
-        unbinder = ButterKnife.bind(this,itemView);
+        unbinder = ButterKnife.bind(this, itemView);
         LinearLayoutManager layoutManager = new LinearLayoutManager(getContext());
         recycler_people.setLayoutManager(layoutManager);
-        recycler_people.addItemDecoration(new DividerItemDecoration(getContext(),layoutManager.getOrientation()));
+        recycler_people.addItemDecoration(new DividerItemDecoration(getContext(), layoutManager.getOrientation()));
     }
 
     @Override
@@ -127,13 +144,14 @@ public class PeopleFragment extends Fragment {
     @Override
     public void onStart() {
         super.onStart();
-        if (adapter!=null){
+        if (adapter != null) {
             adapter.startListening();
         }
     }
+
     @Override
     public void onStop() {
-        if (adapter!=null){
+        if (adapter != null) {
             adapter.stopListening();
         }
         super.onStop();

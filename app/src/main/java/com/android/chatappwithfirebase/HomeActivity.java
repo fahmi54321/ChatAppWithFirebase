@@ -7,10 +7,13 @@ import androidx.lifecycle.LifecycleObserver;
 import androidx.viewpager2.widget.ViewPager2;
 
 import android.os.Bundle;
+import android.util.Log;
 
 import com.android.chatappwithfirebase.Adapter.MyViewPagerAdapter;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -31,6 +34,14 @@ public class HomeActivity extends AppCompatActivity {
         //todo 3 (home finish)
         init();
         setupViewPager();
+
+        //todo 6 receive notification (finish testing api fcm messages)
+        //get token
+        FirebaseMessaging.getInstance()
+                .getToken()
+                .addOnSuccessListener(s -> {
+                    Log.d("TOKEN", s);
+                });
     }
 
     private void setupViewPager() {
@@ -52,10 +63,10 @@ public class HomeActivity extends AppCompatActivity {
                 return null;
             }
         }));
-        new TabLayoutMediator(tabLayout,viewPager,(tab,position)->{
-            if (position==0){
+        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+            if (position == 0) {
                 tab.setText("Chat");
-            }else{
+            } else {
                 tab.setText("People");
             }
         }).attach();

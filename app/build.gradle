@@ -47,6 +47,9 @@ dependencies {
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.3.1'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.3.1'
+
+    //todo 1 receive notification(next manifest)
+    implementation 'com.google.firebase:firebase-messaging:22.0.0'
     annotationProcessor 'com.jakewharton:butterknife-compiler:10.2.3'
     //dexter
     implementation 'com.karumi:dexter:6.1.2'

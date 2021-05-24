@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,12 +28,14 @@ import com.android.chatappwithfirebase.R;
 import com.android.chatappwithfirebase.ViewHolder.ChatInfoHolder;
 import com.firebase.ui.database.FirebaseRecyclerAdapter;
 import com.firebase.ui.database.FirebaseRecyclerOptions;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.text.SimpleDateFormat;
 
@@ -122,7 +125,22 @@ public class ChatFragment extends Fragment {
                                             UserModel userModel = snapshot.getValue(UserModel.class);
                                             Common.chatuser = userModel;
                                             Common.chatuser.setUid(snapshot.getKey());
-                                            startActivity(new Intent(getContext(), ChatActivity.class));
+
+                                            //todo 4 receive notification (next people fragment)
+                                            String roomId = Common.generateChatRoomId(
+                                                    FirebaseAuth.getInstance().getCurrentUser().getUid(),
+                                                    Common.chatuser.getUid());
+                                            Common.roomSelected = roomId;
+
+                                            Log.d("ROOMID",roomId);
+
+                                            //Register topic
+                                            FirebaseMessaging.getInstance()
+                                                    .subscribeToTopic(roomId)
+                                                    .addOnSuccessListener(aVoid -> {
+                                                        startActivity(new Intent(getContext(),ChatActivity.class));
+                                                    });
+
                                         }
                                     }
 
